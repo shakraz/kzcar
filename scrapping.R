@@ -4,7 +4,7 @@ library(help=reshape2)
 
 kolesa <- data.frame()
 
-for (page_number in 1:2) {
+for (page_number in 1:1000) {
   
   main_url <- paste0('https://kolesa.kz/cars/?page=', page_number)
   print(main_url)
@@ -17,7 +17,6 @@ for (page_number in 1:2) {
     id <- html_attr(car, 'data-id')
     img <- html_attr(html_node(car, "div.pictures-list img"), 'src')
     date <- html_text(html_node(car, 'span.date'))
-    region <- html_text(html_node(car, 'div.list-region'))
     price <- html_text(html_node(car, 'span.price'))
     
     car_page <- read_html(paste0("https://kolesa.kz/a/show/", id))
@@ -41,9 +40,9 @@ for (page_number in 1:2) {
     names(desc_df) <- col_names
     
     
-    df <- data.frame("id"=id, "img"=img, "date"=date, "region"=region, "price"=price,"brand"=brand,
+    df <- data.frame("id"=id, "img"=img, "date"=date,  "price"=price,"brand"=brand,
                      "model"=model, "year"=year)
-    df <- cbind(df, desc_df)  
+    df <- bind_cols(df, desc_df)  
     
     if(i==1 && page_number==1){
       kolesa <- df
@@ -55,3 +54,18 @@ for (page_number in 1:2) {
   
   print (paste0("page ", page_number," has been processed"))
 }
+
+
+kolesa_df <- kolesa[names(kolesa)[!is.na(names(kolesa))]]
+
+
+write.csv(kolesa_df,'kolesa.csv', row.names = F)
+
+names(kolesa_df) <- c('id', 'img', 'create_date', 'price', 'brand', 'model', 
+                      'year', 'region', 'type', 'engine_volume', 'mileage',
+                      'gear', 'wheel','color', 'drive_type', 'legalized', 'vin','engine')
+
+write.csv(kolesa_df, file='kolesa.csv',quote = F, row.names = F,eol = '\n')
+
+
+kolesa_df <- data.frame(lapply(kolesa_df, function(x) gsub("\n", "", trimws(x) )))

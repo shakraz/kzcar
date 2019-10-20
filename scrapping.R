@@ -1,61 +1,57 @@
-library(rvest)
+library(dplyr)
+library(help=reshape2)
 
-kolesa_df2<-NULL
 
-for (i in 2166:5350) {
+kolesa <- data.frame()
+
+for (page_number in 1:2) {
   
-  link<-paste0('http://kolesa.kz/cars/?page=',i)
+  main_url <- paste0('https://kolesa.kz/cars/?page=', page_number)
+  print(main_url)
+  page <- read_html(main_url)
+  content <- html_node(page, '#results')
+  cars <- html_nodes(content, '.list-item')[1:20]
   
-  print(paste0('The ', i,' is processing now'))
-  page<-read_html(link)
-  
-  content<-html_node(page, xpath='//*[contains(@class,"result-block col-sm-8")]')
-  
-  
-  items<-html_nodes(content, xpath='//*[contains(@class,"list-item")]')[1:20]
-  
-    for (j in 1: length(items)){
-      item=items[j]
-      title<-html_text(html_node(item, '.list-title .list-link'),trim=T)
-      
-      year<-tryCatch({getNumeric(html_text(html_node(item, '.list-extra-info .year'),trim=T))},error=function(err){year<-NA})
-      
-      price<-tryCatch({getNumeric(html_text(html_node(item, '.price-in-list .price'),trim=T))},error=function(err){price<-NA})
-      
-      region<-html_text(html_node(item, '.list-region'),trim=T)
-      
-      views<-getNumeric(html_text(html_node(item, '.list-views-comments span'),trim=T))
-      
-      desc<-html_text(html_node(item, '.description'),trim=T)
-      
-      type<-sapply(desc, function(x)   unlist(strsplit(x,','))[1])
-      
-      volume2<- getNumeric(sapply(desc, function(x)   getNumeric(unlist(strsplit(x,','))[2])))
-      
-      url<-html_attr(html_node(item, '.photo a'), 'href')
-      
-      df<-data.frame(title, price,year, region, views, type, volume2, url)
-      
-      if (i==2166){
-        kolesa_df2<-df
-      }else{
-        kolesa_df2<-rbind(kolesa_df2, df)
-      }
+  for (i in 1:length(cars)) {
+    car = cars[i]
+    id <- html_attr(car, 'data-id')
+    img <- html_attr(html_node(car, "div.pictures-list img"), 'src')
+    date <- html_text(html_node(car, 'span.date'))
+    region <- html_text(html_node(car, 'div.list-region'))
+    price <- html_text(html_node(car, 'span.price'))
     
+    car_page <- read_html(paste0("https://kolesa.kz/a/show/", id))
+    car_content <- html_node(car_page, 'div.row')
+    header <- html_nodes(car_content, 'h1.offer__title span')
+    brand <- html_text(header[1])
+    model <- html_text(header[2])
+    year <- html_text(header[3])
+    
+    
+    col_names <-
+      html_attr(html_nodes(car_content, 'div.offer__parameters dl dt'),
+                "title")
+    values <-
+      html_text(html_nodes(car_content, 'div.offer__parameters dl dd'),
+                ".value")
+    views <-
+      html_text(html_node(car_content, "div.offer__info-views span"),
+                'strong')
+    desc_df <- data.frame(matrix(values, nrow=1))
+    names(desc_df) <- col_names
+    
+    
+    df <- data.frame("id"=id, "img"=img, "date"=date, "region"=region, "price"=price,"brand"=brand,
+                     "model"=model, "year"=year)
+    df <- cbind(df, desc_df)  
+    
+    if(i==1 && page_number==1){
+      kolesa <- df
+    }else{
+      kolesa <- bind_rows(kolesa, df)
     }
+  
+  }
+  
+  print (paste0("page ", page_number," has been processed"))
 }
-
-
-
-
-
-
-getNumeric<-function(text_list){ 
-  as.numeric(
-    gsub('[^\\d+]','',text_list, perl=T))
-}
-kolesa_df<-read.csv('C:\\Users\\shakraz\\Documents\\KnnR\\kolesa_df.csv', encoding = 'UTF-8')
-
-kolesa_df<-rbind(kolesa_df, kolesa_df2)
-#write.csv(kolesa_df, paste0(getwd(),'/kolesa_df.csv'), row.names = F)
-

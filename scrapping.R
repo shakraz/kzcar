@@ -3,11 +3,23 @@ library(help=reshape2)
 
 
 kolesa <- data.frame()
+regions <- c('aktau', 'aktobe', 'almaty', 'atyrau', 'jezkazgan', 'karaganda',
+             'kokshetau', 'kostanai', 'kyzylorda', 'nur-sultan', 'pavlodar',
+             'petropavlovsk', 'semei', 'taldykorgan', 'taraz', 'turkestan',
+             'ust-kamenogorsk','shymkent')
 
-for (page_number in 1:1000) {
+for (city in regions){
+
+url  <- paste0('https://kolesa.kz/cars/', city)
+
+region_page <- read_html(url)
+region_content <- tail(html_nodes(region_page, 'div.pager li'),n=1)
+
+last_page_number <- as.integer(html_text(region_content, "span"))
+
+for (page_number in 1:last_page_number) {
   
-  main_url <- paste0('https://kolesa.kz/cars/?page=', page_number)
-  print(main_url)
+  main_url <- paste0('https://kolesa.kz/cars/',city,'/?page=', page_number)
   page <- read_html(main_url)
   content <- html_node(page, '#results')
   cars <- html_nodes(content, '.list-item')[1:20]
@@ -44,7 +56,9 @@ for (page_number in 1:1000) {
                      "model"=model, "year"=year)
     df <- bind_cols(df, desc_df)  
     
-    if(i==1 && page_number==1){
+    if(
+      which(regions==city)==1 &&
+      i==1 && page_number==1){
       kolesa <- df
     }else{
       kolesa <- bind_rows(kolesa, df)
@@ -52,20 +66,16 @@ for (page_number in 1:1000) {
   
   }
   
-  print (paste0("page ", page_number," has been processed"))
+  print (paste0("region: ", city, " page ", page_number," out of ",last_page_number, " has been processed"))
 }
 
+}
 
 kolesa_df <- kolesa[names(kolesa)[!is.na(names(kolesa))]]
-
-
 write.csv(kolesa_df,'kolesa.csv', row.names = F)
 
 names(kolesa_df) <- c('id', 'img', 'create_date', 'price', 'brand', 'model', 
                       'year', 'region', 'type', 'engine_volume', 'mileage',
                       'gear', 'wheel','color', 'drive_type', 'legalized', 'vin','engine')
-
-write.csv(kolesa_df, file='kolesa.csv',quote = F, row.names = F,eol = '\n')
-
 
 kolesa_df <- data.frame(lapply(kolesa_df, function(x) gsub("\n", "", trimws(x) )))
